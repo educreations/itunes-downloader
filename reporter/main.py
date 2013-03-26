@@ -4,7 +4,7 @@ from optparse import OptionParser
 import os
 import sys
 
-from boto.s3.connection import S3Connection
+from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 
 from reports import get_and_store_latest_report, generate_report_from_files, link_for_latest_report, email_report
 
@@ -47,7 +47,7 @@ if __name__ == '__main__':
             optparser.print_help()
             sys.exit()
 
-    s3 = S3Connection(options.key, options.secret)
+    s3 = S3Connection(options.key, options.secret, calling_format=OrdinaryCallingFormat())
     bucket = s3.get_bucket(options.bucket)
 
     if options.download:
