@@ -265,9 +265,6 @@ def email_report(email, download_link, report, host, port, login=None, password=
         height=height,
     )
 
-    if verbose:
-        print(html)
-
     # Create message container - the correct MIME type is multipart/alternative.
     message_root = MIMEMultipart('related')
     message_root['Subject'] = "Daily iTunes Download Report"
