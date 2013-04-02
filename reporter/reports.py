@@ -242,9 +242,20 @@ def email_report(email, download_link, report, host, port, login=None, password=
     daily_chart_url = daily_chart.get_url()
     cumulative_chart_url = cumulative_chart.get_url()
 
+    # Create recent versions of the charts
+    daily_chart.data = [daily[-90:]]
+    cumulative_chart.data = [cumulative[-90:]]
+    daily_chart.set_title('Recent Daily Downloads')
+    cumulative_chart.set_title('Recent Cumulative Downloads')
+
+    daily_recent_chart_url = daily_chart.get_url()
+    cumulative_recent_chart_url = cumulative_chart.get_url()
+
     if verbose:
         print('Daily: ' + daily_chart_url)
         print('Cumulative: ' + cumulative_chart_url)
+        print('Daily Recent: ' + daily_recent_chart_url)
+        print('Cumulative Recent: ' + cumulative_recent_chart_url)
 
     # Create the body of the message (a plain-text and an HTML version).
     text = "Get an HTML mail client."
@@ -256,6 +267,8 @@ def email_report(email, download_link, report, host, port, login=None, password=
         <p><a href="{download}">Download today's report</a>.</p>
         <p><img src="cid:daily.png" width="{width}" height="{height}" alt="Daily Downloads" /></p>
         <p><img src="cid:cumulative.png" width="{width}" height="{height}" alt="Cumulative Downloads" /></p>
+        <p><img src="cid:daily-recent.png" width="{width}" height="{height}" alt="Recent Daily Downloads" /></p>
+        <p><img src="cid:cumulative-recent.png" width="{width}" height="{height}" alt="Recent Cumulative Downloads" /></p>
     </body>
 </html>""".format(
         latest=daily[-1],
@@ -294,6 +307,16 @@ def email_report(email, download_link, report, host, port, login=None, password=
     r = requests.get(cumulative_chart_url)
     img = MIMEImage(r.content)
     img.add_header('Content-ID', '<cumulative.png>')
+    message_root.attach(img)
+
+    r = requests.get(daily_recent_chart_url)
+    img = MIMEImage(r.content)
+    img.add_header('Content-ID', '<daily-recent.png>')
+    message_root.attach(img)
+
+    r = requests.get(cumulative_recent_chart_url)
+    img = MIMEImage(r.content)
+    img.add_header('Content-ID', '<cumulative-recent.png>')
     message_root.attach(img)
 
     try:
