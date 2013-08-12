@@ -98,6 +98,7 @@ if __name__ == '__main__':
                 email=options.email,
                 download_link=download_link,
                 daily_report=daily_report,
+                weekly_report=weekly_report,
                 host=options.smtp_host,
                 port=options.smtp_port,
                 login=options.smtp_login,
