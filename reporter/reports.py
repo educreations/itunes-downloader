@@ -299,12 +299,32 @@ def email_report(email, download_link, daily_report, weekly_report,
     # Create recent versions of the charts
     if daily:
         recent_daily = daily[-90:]
-        daily_chart.data = [recent_daily]
+
+        # Get last year's daily data. First, get the first date for the daily
+        # data.
+        start = daily_report.items()[-90][0]
+        dt = datetime.datetime.strptime(start, '%Y/%m/%d')
+        dt = dt - datetime.timedelta(weeks=52)
+        last_year_datestr = datetime_to_str(dt)
+
+        # Get the index in the data for the datestr
+        try:
+            i = daily_report.keys().index(last_year_datestr)
+            recent_daily_comparison = daily[i:i + 90]
+        except ValueError:
+            recent_daily_comparison = []
+
+        if recent_daily_comparison:
+            daily_chart.data = [recent_daily, recent_daily_comparison]
+        else:
+            daily_chart.data = [recent_daily]
         # Reset the axes
         daily_chart.axis = []
-        daily_chart.set_axis_range(Axis.LEFT, 0, max(recent_daily))
-        daily_chart.set_axis_labels(Axis.RIGHT, [min(recent_daily), max(recent_daily)])
-        daily_chart.set_title('Recent Daily Downloads')
+        min_daily = min(recent_daily + recent_daily_comparison)
+        max_daily = max(recent_daily + recent_daily_comparison)
+        daily_chart.set_axis_range(Axis.LEFT, 0, max_daily)
+        daily_chart.set_axis_labels(Axis.RIGHT, [min_daily, max_daily])
+        daily_chart.set_title('Recent Daily Downloads (filled is now)')
 
         daily_recent_chart_url = daily_chart.get_url()
     else:
