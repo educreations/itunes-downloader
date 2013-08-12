@@ -178,7 +178,7 @@ def _concatenate_reports_in_bucket(bucket, dest, verbose=False):
     dest.seek(0)
 
     for key in bucket.list(prefix=S3_PREFIX):
-        if not key.name.startswith('S_D_'):
+        if 'S_D_' not in key.name:
             continue
         if verbose:
             sys.stdout.write('.')
