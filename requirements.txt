@@ -1,4 +1,4 @@
-envoy
-boto
-pygooglechart
-requests
+boto==2.9.9
+envoy==0.0.2
+pygooglechart==0.3.0
+requests==1.2.3
