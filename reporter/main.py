@@ -6,7 +6,7 @@ import sys
 
 from boto.s3.connection import S3Connection, OrdinaryCallingFormat
 
-from reports import get_and_store_latest_report, generate_report_from_files, link_for_latest_report, email_report
+from reports import get_and_store_latest_report, generate_reports_from_files, link_for_latest_report, email_report
 
 
 if __name__ == '__main__':
@@ -15,8 +15,9 @@ if __name__ == '__main__':
     optparser.add_option("-d", "--dry-run", dest="dry_run", action="store_true", help="Dry run.")
 
     # Actions
-    optparser.add_option("--download", dest="download", action="store_true", default=False, help="Do not download the latest report.")
-    optparser.add_option("--summary", dest="summary", action="store_true", default=False, help="Do not generate a summary.")
+    optparser.add_option("--download", dest="download", action="store_true", default=False, help="Download the latest report data.")
+    optparser.add_option("--daily-summary", dest="daily", action="store_true", default=False, help="Generate a daily summary.")
+    optparser.add_option("--weekly-summary", dest="weekly", action="store_true", default=False, help="Generate a weekly summary.")
 
     # Report destination
     optparser.add_option("-e", "--email", dest="email", default=os.getenv('MAILTO'), help="The email to send to.")
@@ -60,12 +61,35 @@ if __name__ == '__main__':
             verbose=verbose,
         )
 
-    report = generate_report_from_files(bucket=bucket, verbose=verbose) if options.summary else None
+    if options.daily or options.weekly:
+        daily_report, weekly_report = generate_reports_from_files(
+            bucket=bucket,
+            verbose=verbose,
+            daily=options.daily,
+            weekly=options.weekly,
+        )
+    else:
+        daily_report, weekly_report = None, None
 
-    if report:
+    if daily_report is not None or weekly_report is not None:
+
+        # Print the report data to the console
         if options.verbose:
-            output = '\n'.join(['Date\tCount\tCumulative'] + ['{}\t{}\t{}'.format(k, *v) for k, v in report.iteritems()])
-            print(output)
+            for name, report in {'daily': daily_report, 'weekly': weekly_report}.iteritems():
+                if report is None:
+                    continue
+                output = """
+===================================
+      {} Download Numbers
+===================================
+""".format(name.title()) + '\n'.join(
+                    ['Date\tCount\tCumulative'] +
+                    [
+                        '{}\t{}\t{}'.format(k, *v)
+                        for k, v in report.iteritems()
+                    ]
+                )
+                print(output)
 
         download_link = link_for_latest_report(bucket, verbose=verbose)
 
@@ -73,7 +97,7 @@ if __name__ == '__main__':
             email_report(
                 email=options.email,
                 download_link=download_link,
-                report=report,
+                daily_report=daily_report,
                 host=options.smtp_host,
                 port=options.smtp_port,
                 login=options.smtp_login,

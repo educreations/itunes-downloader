@@ -164,31 +164,61 @@ def get_and_store_latest_report(bucket, login, password, vendorid, dry_run=False
         os.chdir(oldcwd)
 
 
-def generate_report_from_files(bucket, verbose=False):
-    # Generate a summary report
+def _concatenate_reports_in_bucket(bucket, dest, verbose=False):
+    """Concatenate the report files in `bucket` into dest."""
     if verbose:
-        print('Generating a summary report.')
+        print('Parsing download reports from the files in {}...'.format(bucket.name))
+
+    dest.seek(0)
+
+    for key in bucket.list(prefix=S3_PREFIX):
+        if verbose:
+            sys.stdout.write('.')
+            sys.stdout.flush()
+        key.open('r')
+        with contextlib.closing(StringIO.StringIO(key.read())) as s, gzip.GzipFile(fileobj=s) as gz:
+            dest.write(gz.read())
+
+    if verbose:
+        print(' done fetching download reports.')
+
+
+def _reports_from_source(source, daily=False, weekly=False, verbose=False):
+    """Generate daily and weekly reports from a source file."""
+    if verbose:
+        print('Generating reports from source file...')
+    source.seek(0)
+
+    reader = csv.reader(exclude_headers(source), delimiter='\t')
+    daily_report = generate_daily_report(reader) if daily else None
+    weekly_report = None
+
+    print(' done.')
+
+    return daily_report, weekly_report
+
+
+def generate_reports_from_files(bucket, verbose=False, daily=False, weekly=False):
+    """Generate a summary report from `bucket`.
+
+    Generate daily and / or weekly summary reports.
+
+    Returns tuple of daily_report, weekly_report
+    """
 
     # For every file in the bucket directory, unzip it and add it to a temporary file
-    with tempfile.TemporaryFile() as summary:
-        for key in bucket.list(prefix=S3_PREFIX):
-            if verbose:
-                sys.stdout.write('.')
-                sys.stdout.flush()
-            key.open('r')
-            with contextlib.closing(StringIO.StringIO(key.read())) as s, gzip.GzipFile(fileobj=s) as gz:
-                summary.write(gz.read())
+    #with tempfile.TemporaryFile() as summary:
+    #    _concatenate_reports_in_bucket(bucket=bucket, dest=summary, verbose=verbose)
 
-        if verbose:
-            print(' done.')
+    with open('downloaded.csv', 'r') as summary:
+        daily_report, weekly_report = _reports_from_source(
+            summary,
+            daily=daily,
+            weekly=weekly,
+            verbose=verbose,
+        )
 
-        summary.seek(0)
-
-        reader = csv.reader(exclude_headers(summary), delimiter='\t')
-        report = generate_daily_report(reader)
-        #report = generate_weekly_report(reader)
-
-        return report
+        return daily_report, weekly_report
 
 
 def link_for_latest_report(bucket, verbose=False):
@@ -199,9 +229,9 @@ def link_for_latest_report(bucket, verbose=False):
     return key.generate_url(expires_in=60 * 60 * 24 * 365)
 
 
-def email_report(email, download_link, report, host, port, login=None, password=None, dry_run=False, verbose=False):
-    daily = [v[0] for k, v in report.items()]
-    cumulative = [v[1] for k, v in report.items()]
+def email_report(email, download_link, daily_report, host, port, login=None, password=None, dry_run=False, verbose=False):
+    daily = [v[0] for k, v in daily_report.items()]
+    cumulative = [v[1] for k, v in daily_report.items()]
 
     width, height = 700, 300
 
