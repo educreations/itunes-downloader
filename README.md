@@ -44,3 +44,9 @@ reports.
 ```bash
 python reporter/main.py --download --daily-summary --weekly-summary -q
 ```
+
+You can also run the report manually by executing the following command:
+
+```bash
+heroku run python reporter/main.py --download --daily-summary --weekly-summary -q
+```
