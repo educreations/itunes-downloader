@@ -38,8 +38,9 @@ heroku config:set ITUNES_CONNECT_LOGIN="..." \
 ```
 
 If you've set up your environment correctly, you can invoke the script with the
-following in your scheduler config.
+following in your scheduler config. This will generate both daily and weekly
+reports.
 
 ```bash
-python reporter/main.py --download --summary -q
+python reporter/main.py --download --daily-summary --weekly-summary -q
 ```

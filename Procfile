@@ -1,1 +1,1 @@
-cron: ./reporter/main.py --download --summary -q
+cron: ./reporter/main.py --download --daily-summary --weekly-summary -q
