@@ -20,8 +20,9 @@ heroku addons:add scheduler:standard
 ```
 
 You'll want to make sure several environment variables are defined, or you can
-pass everything in as flags to the `main.py` script. To set up this script to
-run on Heroku, you can set the config for the app as follows:
+pass everything in as flags to the `main.py` script. Run `reporter/main.py -h`
+for a list of all the options. To set up this script to run on Heroku, you can
+set the config for the app as follows:
 
 ```bash
 heroku config:set ITUNES_CONNECT_LOGIN="..." \
@@ -45,8 +46,22 @@ reports.
 python reporter/main.py --download --daily-summary --weekly-summary -q
 ```
 
-You can also run the report manually by executing the following command:
+You can also run the report manually on Heroku by executing the following command:
 
 ```bash
 heroku run python reporter/main.py --download --daily-summary --weekly-summary -q
+```
+
+Running Locally
+---------------
+
+This can also be run locally. Either export your environment variables the
+same as you would on Heroku, or pass in everything as command line arguments.
+Then install the Python requirements and run the reporter:
+
+```bash
+virtualenv venv && source venv/bin/activate
+# Or mkvirtualenv itunes-downloader for virtualenvwrapper folk
+pip install -r requirements.txt
+./reporter/main.py --download --daily-summary --weekly-summary
 ```
