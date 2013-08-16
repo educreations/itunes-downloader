@@ -52,6 +52,7 @@ You can also run the report manually on Heroku by executing the following comman
 heroku run python reporter/main.py --download --daily-summary --weekly-summary -q
 ```
 
+
 Running Locally
 ---------------
 
