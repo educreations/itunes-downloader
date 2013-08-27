@@ -66,3 +66,9 @@ virtualenv venv && source venv/bin/activate
 pip install -r requirements.txt
 ./reporter/main.py --download --daily-summary --weekly-summary
 ```
+
+
+License
+-------
+
+Copyright © 2013, Educreations, Inc under the [MIT](LICENSE.md).
