@@ -71,4 +71,4 @@ pip install -r requirements.txt
 License
 -------
 
-Copyright © 2013, Educreations, Inc under the [MIT](LICENSE.md).
+Copyright © 2013, Educreations, Inc under the [MIT](LICENSE).
