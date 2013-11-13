@@ -13,11 +13,9 @@ import ssl
 import StringIO
 import sys
 import tempfile
-import time
-import urllib
 
 from boto.s3.key import Key
-from pygooglechart import Chart, SimpleLineChart, Axis
+from pygooglechart import SimpleLineChart, Axis
 import envoy
 import requests
 
@@ -173,7 +171,8 @@ def get_and_store_latest_report(bucket, login, password, vendorid, dry_run=False
 def _concatenate_reports_in_bucket(bucket, dest, verbose=False):
     """Concatenate the report files in `bucket` into dest."""
     if verbose:
-        print('Parsing download reports from the files in {}...'.format(bucket.name))
+        print('Parsing download reports from the files in {}...'.format(
+            bucket.name))
 
     dest.seek(0)
 
@@ -205,7 +204,8 @@ def _reports_from_source(source, daily=False, weekly=False, verbose=False):
     return daily_report, weekly_report
 
 
-def generate_reports_from_files(bucket, verbose=False, daily=False, weekly=False):
+def generate_reports_from_files(
+        bucket, verbose=False, daily=False, weekly=False):
     """Generate a summary report from `bucket`.
 
     Generate daily and / or weekly summary reports.
@@ -213,9 +213,11 @@ def generate_reports_from_files(bucket, verbose=False, daily=False, weekly=False
     Returns tuple of daily_report, weekly_report
     """
 
-    # For every file in the bucket directory, unzip it and add it to a temporary file
+    # For every file in the bucket directory, unzip it and add it to a
+    # temporary file
     with tempfile.TemporaryFile() as summary:
-        _concatenate_reports_in_bucket(bucket=bucket, dest=summary, verbose=verbose)
+        _concatenate_reports_in_bucket(
+            bucket=bucket, dest=summary, verbose=verbose)
 
         daily_report, weekly_report = _reports_from_source(
             summary,
@@ -236,7 +238,8 @@ def link_for_latest_report(bucket, verbose=False):
 
 
 def email_report(email, download_link, daily_report, weekly_report,
-        host, port, login=None, password=None, dry_run=False, verbose=False):
+                 host, port, login=None, password=None, dry_run=False,
+                 verbose=False):
     daily = [v[0] for k, v in daily_report.items()] if daily_report else []
     weekly = [v[0] for k, v in weekly_report.items()] if weekly_report else []
 
@@ -270,7 +273,8 @@ def email_report(email, download_link, daily_report, weekly_report,
 
     cumulative_chart.add_data(cumulative)
     cumulative_chart.set_axis_range(Axis.LEFT, 0, max(cumulative))
-    cumulative_chart.set_axis_labels(Axis.RIGHT, [min(cumulative), max(cumulative)])
+    cumulative_chart.set_axis_labels(
+        Axis.RIGHT, [min(cumulative), max(cumulative)])
 
     # Set the styling
     marker = ('B', 'C5D4B5BB', '0', '0', '0')
@@ -290,7 +294,8 @@ def email_report(email, download_link, daily_report, weekly_report,
     weekly_chart.set_grid(*grid_args, **grid_kwargs)
     cumulative_chart.set_grid(*grid_args, **grid_kwargs)
 
-    #daily_chart.fill_linear_stripes(Chart.CHART, 0, 'CCCCCC', 0.2, 'FFFFFF', 0.2)
+    #daily_chart.fill_linear_stripes(
+    #   Chart.CHART, 0, 'CCCCCC', 0.2, 'FFFFFF', 0.2)
 
     daily_chart_url = daily_chart.get_url() if daily else None
     weekly_chart_url = weekly_chart.get_url() if weekly else None
@@ -409,8 +414,9 @@ def email_report(email, download_link, daily_report, weekly_report,
         s.starttls()
         s.login(login, password)
 
-        # sendmail function takes 3 arguments: sender's address, recipient's address
-        # and message to send - here it is sent as one string.
+        # sendmail function takes 3 arguments: sender's address,
+        # recipient's address and message to send - here it is sent as one
+        # string.
         s.sendmail(email, [email], message_root.as_string())
         s.quit()
     except (ssl.SSLError, smtplib.SMTPServerDisconnected):
