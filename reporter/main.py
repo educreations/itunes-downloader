@@ -5,11 +5,16 @@ import os
 import sys
 
 from boto.s3.connection import S3Connection, OrdinaryCallingFormat
+import dotenv
 
 from reports import get_and_store_latest_report, generate_reports_from_files, link_for_latest_report, email_report
 
 
 if __name__ == '__main__':
+    # Try to read in the local .env file
+    if os.path.exists('.env'):
+        dotenv.read_dotenv('.env')
+
     optparser = OptionParser()
     optparser.add_option("-q", "--quiet", dest="verbose", action="store_false", default=True, help="Be verbose.")
     optparser.add_option("-d", "--dry-run", dest="dry_run", action="store_true", help="Dry run.")
