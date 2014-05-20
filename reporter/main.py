@@ -88,9 +88,9 @@ if __name__ == '__main__':
       {} Download Numbers
 ===================================
 """.format(name.title()) + '\n'.join(
-                    ['Date\tCount\tCumulative'] +
+                    ['Date\tCount\tUpdates\tEducational\tCumulative'] +
                     [
-                        '{}\t{}\t{}'.format(k, *v)
+                        '{}\t{}\t{}\t{}\t{}'.format(k, *v)
                         for k, v in report.iteritems()
                     ]
                 )

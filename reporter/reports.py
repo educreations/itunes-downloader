@@ -26,9 +26,12 @@ COLUMN_DATE = 9
 COLUMN_DOWNLOAD_TYPE = 6
 COLUMN_VERSION = 5
 COLUMN_DOWNLOADS = 7
+COLUMN_PROMO = 16
 
 DOWNLOAD_TYPE_INSTALL = '1T'
 DOWNLOAD_TYPE_UPGRADE = '7T'
+
+PROMO_TYPE_EDU = 'EDU'
 
 S3_PREFIX = 'itunes'
 
@@ -51,6 +54,37 @@ def datetime_to_str(dt):
     return dt.strftime('%Y/%m/%d')
 
 
+def _iter_sorted_report(reader):
+    return sorted(reader, key=lambda r: datestr_to_datetime(r[COLUMN_DATE]))
+
+
+def _entry_row_for_date(data, row, date, cumulative):
+    units_type = row[COLUMN_DOWNLOAD_TYPE]
+    downloads = int(row[COLUMN_DOWNLOADS])
+    edu_promo = row[COLUMN_PROMO] == PROMO_TYPE_EDU
+
+    install_count = 0
+    upgrade_count = 0
+    educational_count = 0
+    if units_type == DOWNLOAD_TYPE_INSTALL:
+        install_count = downloads
+        if edu_promo:
+            educational_count = downloads
+    elif units_type == DOWNLOAD_TYPE_UPGRADE:
+        upgrade_count = downloads
+    else:
+        return 0
+
+    if date not in data:
+        data[date] = (0, 0, 0, cumulative)
+
+    day, updates, edu, cum = data[date]
+
+    data[date] = (day + install_count, updates + upgrade_count, edu + educational_count, cumulative + install_count)
+
+    return install_count
+
+
 def generate_daily_report(f, upgrades=False):
     """
     Generates a summary of the sales data by day.
@@ -64,21 +98,10 @@ def generate_daily_report(f, upgrades=False):
 
     cumulative = 0
 
-    for row in sorted(reader, key=lambda r: datestr_to_datetime(r[COLUMN_DATE])):
+    for row in _iter_sorted_report(reader):
         date = datetime_to_str(datestr_to_datetime(row[COLUMN_DATE]))
-        install = row[COLUMN_DOWNLOAD_TYPE]
-        downloads = int(row[COLUMN_DOWNLOADS])
 
-        if install != DOWNLOAD_TYPE_INSTALL:
-            continue
-
-        if date not in data:
-            data[date] = (0, cumulative)
-
-        day, cum = data[date]
-        cumulative += downloads
-
-        data[date] = (day + downloads, cumulative)
+        cumulative += _entry_row_for_date(data, row, date, cumulative)
 
     return data
 
@@ -96,23 +119,12 @@ def generate_weekly_report(f, upgrades=False):
 
     cumulative = 0
 
-    for row in sorted(reader, key=lambda r: datestr_to_datetime(r[COLUMN_DATE])):
+    for row in _iter_sorted_report(reader):
         dt = datestr_to_datetime(row[COLUMN_DATE])
         weekdt = datetime.datetime.strptime('{} {} 0'.format(dt.year, dt.isocalendar()[1]), '%Y %W %w')
         date = datetime_to_str(weekdt)
-        install = row[COLUMN_DOWNLOAD_TYPE]
-        downloads = int(row[COLUMN_DOWNLOADS])
 
-        if install != DOWNLOAD_TYPE_INSTALL:
-            continue
-
-        if date not in data:
-            data[date] = (0, cumulative)
-
-        week, cum = data[date]
-        cumulative += downloads
-
-        data[date] = (week + downloads, cumulative)
+        cumulative += _entry_row_for_date(data, row, date, cumulative)
 
     # Sort the data
     data = collections.OrderedDict(sorted(data.items(), key=lambda i: i[0]))
@@ -241,12 +253,14 @@ def email_report(email, download_link, daily_report, weekly_report,
                  host, port, login=None, password=None, dry_run=False,
                  verbose=False):
     daily = [v[0] for k, v in daily_report.items()] if daily_report else []
+    daily_updates = daily_report.items()[-1][1][1]
+    daily_edu = daily_report.items()[-1][1][2]
     weekly = [v[0] for k, v in weekly_report.items()] if weekly_report else []
 
     cumulative_data = daily_report if daily_report else weekly_report
     if cumulative_data is None:
         raise Exception("No data given to generate a cumulative report!")
-    cumulative = [v[1] for k, v in cumulative_data.items()]
+    cumulative = [v[3] for k, v in cumulative_data.items()]
 
     width, height = 700, 300
 
@@ -262,9 +276,10 @@ def email_report(email, download_link, daily_report, weekly_report,
 
     # Add data
     if daily:
-        daily_chart.add_data(daily)
-        daily_chart.set_axis_range(Axis.LEFT, 0, max(daily))
-        daily_chart.set_axis_labels(Axis.RIGHT, [min(daily), max(daily)])
+        daily_data = daily[-180:]
+        daily_chart.add_data(daily_data)
+        daily_chart.set_axis_range(Axis.LEFT, 0, max(daily_data))
+        daily_chart.set_axis_labels(Axis.RIGHT, [min(daily_data), max(daily_data)])
 
     if weekly:
         weekly_chart.add_data(weekly)
@@ -341,23 +356,93 @@ def email_report(email, download_link, daily_report, weekly_report,
         print('Cumulative: ' + cumulative_chart_url)
         print('Daily Recent: ' + daily_recent_chart_url) if daily_recent_chart_url else None
 
+    yesterday = datetime.date.today() - datetime.timedelta(days=1)
+
     # Create the body of the message (a plain-text and an HTML version).
     text = "Get an HTML mail client."
     html = """\
 <html>
-    <body>
-        <h2>Latest download count: {latest_daily}</h2>
-        <h2>Latest weekly download count: {latest_weekly}</h2>
-        <h2>Latest cumulative total: {cumulative}</h2>
-        <p><a href="{download}">Download today's report</a>.</p>
-        <p><img src="cid:daily.png" width="{width}" height="{height}" alt="Daily Downloads" /></p>
-        <p><img src="cid:weekly.png" width="{width}" height="{height}" alt="Weekly Downloads" /></p>
-        <p><img src="cid:cumulative.png" width="{width}" height="{height}" alt="Cumulative Downloads" /></p>
-        <p><img src="cid:daily-recent.png" width="{width}" height="{height}" alt="Recent Daily Downloads" /></p>
-    </body>
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta name="viewport" content="width=600" />
+    <style>
+        @media only screen and (min-device-width: 541px) {{
+            .content {{
+                width: 540px !important;
+            }}
+        }}
+    </style>
+</head>
+
+<body>
+
+<table class="content" align="center" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 540px; border: 1px solid #cbcbcb;">
+    <tr>
+        <td height="32" style="text-align: center; background-color:#fe8359;height:32px;color:#fff" bgcolor="fe8359">
+            <span style="font-size:11px">Daily Report for</span>
+            <span style="font-size:14px;font-weight:bold">{yesterday:%A, %B %d, %Y}</span>
+        </td>
+    </tr>
+    <tr>
+        <td height="30" valign="middle">
+            <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; text-align: center">
+                <tr>
+                    <td style="margin-top: 5px;">
+                        <span style="font-size: 10px; color: #777">Downloads:</span>
+                        <div style="font-size: 15px; margin-top: 3px; "><b>{latest_daily:,}</b></div>
+                    </td>
+                    <td style="margin-top: 5px;">
+                        <span style="font-size: 10px; color: #777">Updates:</span>
+                        <div style="font-size: 15px; margin-top: 3px; "><b>{latest_updates:,}</b></div>
+                    </td>
+                    <td style="margin-top: 5px;">
+                        <span style="font-size: 10px; color: #777">Educational:</span>
+                        <div style="font-size: 15px; margin-top: 3px; "><b>{latest_edu:,}</b></div>
+                    </td>
+                    <td style="margin-top: 5px;">
+                        <span style="font-size: 10px; color: #777">Since Monday:</span>
+                        <div style="font-size: 15px; margin-top: 3px; "><b>{latest_weekly:,}</b></div>
+                    </td>
+                    <td style="margin-top: 5px;">
+                        <span style="font-size: 10px; color: #777">Cumulative:</span>
+                        <div style="font-size: 15px; margin-top: 3px; "><b>{cumulative:,}</b></div>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+    <tr>
+        <td></td>
+    </tr>
+    <tr>
+        <td><hr color="#cbcbcb"></td>
+    </tr>
+
+    <tr><td style="padding: 5px;"><img src="cid:daily.png" width="{width}" height="{height}" alt="Daily Downloads" /></td></tr>
+    <tr><td style="padding: 5px;"><img src="cid:weekly.png" width="{width}" height="{height}" alt="Weekly Downloads" /></td></tr>
+    <tr><td style="padding: 5px;"><img src="cid:cumulative.png" width="{width}" height="{height}" alt="Cumulative Downloads" /></td></tr>
+    <tr><td style="padding: 5px;"><img src="cid:daily-recent.png" width="{width}" height="{height}" alt="Recent Daily Downloads" /></td></tr>
+
+    <tr>
+        <td><hr color="#cbcbcb"></td>
+    </tr>
+    <tr>
+        <td style="padding: 10px; text-align: center;">
+            <a style="color: #777" href="{download}">Download today's report</a>
+        </td>
+    </tr>
+</table>
+
+
+</body>
+
 </html>""".format(
+        yesterday=yesterday,
         latest_daily=daily[-1] if daily else 0,
         latest_weekly=weekly[-1] if weekly else 0,
+        latest_updates=daily_updates,
+        latest_edu=daily_edu,
         cumulative=cumulative[-1],
         download=download_link,
         width=width,
@@ -366,7 +451,7 @@ def email_report(email, download_link, daily_report, weekly_report,
 
     # Create message container - the correct MIME type is multipart/alternative.
     message_root = MIMEMultipart('related')
-    message_root['Subject'] = "Daily iTunes Download Report"
+    message_root['Subject'] = "iTunes Report for {:%A, %B %d, %Y}".format(yesterday)
     message_root['From'] = email
     message_root['To'] = email
     message_root.preamble = 'This is a multi-part message.'
