@@ -472,24 +472,24 @@ def email_report(email, download_link, daily_report, weekly_report,
     # Get the images
     if daily_chart_url:
         r = requests.get(daily_chart_url)
-        img = MIMEImage(r.content)
+        img = MIMEImage(r.content, _subtype='png')
         img.add_header('Content-ID', '<daily.png>')
         message_root.attach(img)
 
     if weekly_chart_url:
         r = requests.get(weekly_chart_url)
-        img = MIMEImage(r.content)
+        img = MIMEImage(r.content, _subtype='png')
         img.add_header('Content-ID', '<weekly.png>')
         message_root.attach(img)
 
     r = requests.get(cumulative_chart_url)
-    img = MIMEImage(r.content)
+    img = MIMEImage(r.content, _subtype='png')
     img.add_header('Content-ID', '<cumulative.png>')
     message_root.attach(img)
 
     if daily_recent_chart_url:
         r = requests.get(daily_recent_chart_url)
-        img = MIMEImage(r.content)
+        img = MIMEImage(r.content, _subtype='png')
         img.add_header('Content-ID', '<daily-recent.png>')
         message_root.attach(img)
 
